@@ -1,3 +1,4 @@
+import { AggregateInsight } from "@/components/AggregateInsight";
 import { SourceCard } from "@/components/SourceCard";
 import { SummaryBar } from "@/components/SummaryBar";
 import { fetchAllSources } from "@/lib/fetch-source";
@@ -30,6 +31,7 @@ export default async function Home() {
           </p>
         </header>
 
+        <AggregateInsight results={results} />
         <SummaryBar results={results} />
 
         <section className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">

@@ -12,10 +12,29 @@ const playfair = Playfair_Display({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://data-freshness-monitor-rust.vercel.app";
+const TITLE = "Data Freshness Monitor — Australian Gov Data";
+const DESCRIPTION =
+  "A live dashboard tracking when key Australian government open-data sources were last updated, and whether they're keeping to their stated update cadence.";
+
 export const metadata: Metadata = {
-  title: "Data Freshness Monitor — Australian Gov Data",
-  description:
-    "A live freshness dashboard for key Australian government open-data sources.",
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  authors: [{ name: "Nick Tierney" }],
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: "Data Freshness Monitor",
+    type: "website",
+    locale: "en_AU",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({

@@ -1,3 +1,8 @@
+export type ParsedSource = {
+  lastUpdated: Date | null;
+  declaredFrequency: string | null;
+};
+
 export type DataSource = {
   id: string;
   name: string;
@@ -5,16 +10,17 @@ export type DataSource = {
   category: string;
   apiUrl: string;
   sourceUrl: string;
-  parseLastUpdated: (response: unknown) => Date | null;
-  mock?: boolean;
+  parseSource: (response: unknown) => ParsedSource;
+  fallbackFrequency?: string;
 };
 
-const parseCkanPackageShow = (response: unknown): Date | null => {
-  if (!response || typeof response !== "object") return null;
+const parseCkanPackageShow = (response: unknown): ParsedSource => {
+  const empty: ParsedSource = { lastUpdated: null, declaredFrequency: null };
+  if (!response || typeof response !== "object") return empty;
   const r = response as Record<string, unknown>;
-  if (r.success !== true) return null;
+  if (r.success !== true) return empty;
   const result = r.result as Record<string, unknown> | undefined;
-  if (!result) return null;
+  if (!result) return empty;
 
   const candidates = [
     result.data_last_updated,
@@ -44,7 +50,38 @@ const parseCkanPackageShow = (response: unknown): Date | null => {
     }
   }
 
-  return latest;
+  let declaredFrequency: string | null = null;
+  for (const k of [
+    "update_frequency",
+    "accrual_periodicity",
+    "frequency",
+    "update_freq",
+  ]) {
+    const v = result[k];
+    if (typeof v === "string" && v.trim()) {
+      declaredFrequency = v.trim();
+      break;
+    }
+  }
+  if (!declaredFrequency) {
+    const extras = result.extras as Array<Record<string, unknown>> | undefined;
+    if (Array.isArray(extras)) {
+      for (const e of extras) {
+        const key = String(e.key || "").toLowerCase();
+        const value = e.value;
+        if (
+          typeof value === "string" &&
+          value.trim() &&
+          (key.includes("freq") || key.includes("period"))
+        ) {
+          declaredFrequency = value.trim();
+          break;
+        }
+      }
+    }
+  }
+
+  return { lastUpdated: latest, declaredFrequency };
 };
 
 export const sources: DataSource[] = [
@@ -57,7 +94,8 @@ export const sources: DataSource[] = [
       "https://data.gov.au/data/api/3/action/package_show?id=geocoded-national-address-file-g-naf",
     sourceUrl:
       "https://data.gov.au/data/dataset/geocoded-national-address-file-g-naf",
-    parseLastUpdated: parseCkanPackageShow,
+    parseSource: parseCkanPackageShow,
+    fallbackFrequency: "quarterly",
   },
   {
     id: "data-nsw-air-quality",
@@ -67,7 +105,7 @@ export const sources: DataSource[] = [
     apiUrl:
       "https://data.nsw.gov.au/data/api/3/action/package_show?id=2-air-quality-data",
     sourceUrl: "https://data.nsw.gov.au/data/dataset/2-air-quality-data",
-    parseLastUpdated: parseCkanPackageShow,
+    parseSource: parseCkanPackageShow,
   },
   {
     id: "data-vic-crime",
@@ -78,7 +116,7 @@ export const sources: DataSource[] = [
       "https://discover.data.vic.gov.au/api/3/action/package_show?id=crime-statistics-agency-data-tables-unique-victims",
     sourceUrl:
       "https://discover.data.vic.gov.au/dataset/crime-statistics-agency-data-tables-unique-victims",
-    parseLastUpdated: parseCkanPackageShow,
+    parseSource: parseCkanPackageShow,
   },
   {
     id: "data-qld-traffic",
@@ -89,7 +127,7 @@ export const sources: DataSource[] = [
       "https://www.data.qld.gov.au/api/3/action/package_show?id=traffic-census-for-the-queensland-state-declared-road-network",
     sourceUrl:
       "https://www.data.qld.gov.au/dataset/traffic-census-for-the-queensland-state-declared-road-network",
-    parseLastUpdated: parseCkanPackageShow,
+    parseSource: parseCkanPackageShow,
   },
   {
     id: "bom-sydney-obs",
@@ -98,19 +136,24 @@ export const sources: DataSource[] = [
     category: "Weather",
     apiUrl: "https://reg.bom.gov.au/fwo/IDN60901/IDN60901.94768.json",
     sourceUrl: "http://www.bom.gov.au/products/IDN60901/IDN60901.94768.shtml",
-    parseLastUpdated: (response: unknown): Date | null => {
-      if (!response || typeof response !== "object") return null;
+    fallbackFrequency: "every 30 minutes",
+    parseSource: (response: unknown): ParsedSource => {
+      const empty: ParsedSource = { lastUpdated: null, declaredFrequency: null };
+      if (!response || typeof response !== "object") return empty;
       const r = response as Record<string, unknown>;
       const observations = r.observations as Record<string, unknown> | undefined;
-      if (!observations) return null;
+      if (!observations) return empty;
       const data = observations.data as Array<Record<string, unknown>> | undefined;
-      if (!Array.isArray(data) || data.length === 0) return null;
+      if (!Array.isArray(data) || data.length === 0) return empty;
       const first = data[0];
       const utc = first.aifstime_utc;
-      if (typeof utc !== "string") return null;
+      if (typeof utc !== "string") return empty;
       const isoLike = `${utc.slice(0, 4)}-${utc.slice(4, 6)}-${utc.slice(6, 8)}T${utc.slice(8, 10)}:${utc.slice(10, 12)}:${utc.slice(12, 14)}Z`;
       const d = new Date(isoLike);
-      return isNaN(d.getTime()) ? null : d;
+      return {
+        lastUpdated: isNaN(d.getTime()) ? null : d,
+        declaredFrequency: null,
+      };
     },
   },
   {
@@ -122,6 +165,6 @@ export const sources: DataSource[] = [
       "https://data.gov.au/data/api/3/action/package_show?id=measuring-broadband-australia-report-26-dataset-release",
     sourceUrl:
       "https://data.gov.au/data/dataset/measuring-broadband-australia-report-26-dataset-release",
-    parseLastUpdated: parseCkanPackageShow,
+    parseSource: parseCkanPackageShow,
   },
 ];

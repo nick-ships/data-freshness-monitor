@@ -2,10 +2,18 @@ import type { DataSource } from "./sources";
 
 export type FreshnessStatus = "fresh" | "aging" | "stale" | "unknown";
 
+export type Cadence = {
+  label: string;
+  expectedDays: number | null;
+  source: "declared" | "fallback";
+};
+
 export type SourceResult = {
   source: DataSource;
   lastUpdated: Date | null;
   status: FreshnessStatus;
+  cadence: Cadence | null;
+  overdueDays: number | null;
   error?: string;
 };
 
@@ -15,6 +23,50 @@ export const computeStatus = (lastUpdated: Date | null): FreshnessStatus => {
   if (ageDays < 30) return "fresh";
   if (ageDays < 90) return "aging";
   return "stale";
+};
+
+const FREQUENCY_DAYS: Array<[RegExp, number, string]> = [
+  [/real[\s-]?time|continuous|every\s*\d+\s*min|live/i, 1 / 24, "real-time"],
+  [/hourly/i, 1 / 24, "hourly"],
+  [/daily|every\s*day/i, 1, "daily"],
+  [/weekly|fortnight/i, 7, "weekly"],
+  [/biweekly|every\s*two\s*weeks/i, 14, "biweekly"],
+  [/monthly/i, 30, "monthly"],
+  [/quarter/i, 90, "quarterly"],
+  [/bi[\s-]?annual|semi[\s-]?annual/i, 180, "biannual"],
+  [/annual|year/i, 365, "annually"],
+];
+
+export const parseCadence = (
+  declared: string | null,
+  fallback: string | undefined
+): Cadence | null => {
+  const raw = declared || fallback;
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  for (const [re, days, canonical] of FREQUENCY_DAYS) {
+    if (re.test(lower)) {
+      return {
+        label: canonical,
+        expectedDays: days,
+        source: declared ? "declared" : "fallback",
+      };
+    }
+  }
+  return {
+    label: raw,
+    expectedDays: null,
+    source: declared ? "declared" : "fallback",
+  };
+};
+
+export const computeOverdue = (
+  lastUpdated: Date | null,
+  cadence: Cadence | null
+): number | null => {
+  if (!lastUpdated || !cadence || cadence.expectedDays == null) return null;
+  const ageDays = (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24);
+  return Math.max(0, Math.round(ageDays - cadence.expectedDays));
 };
 
 export const fetchSource = async (source: DataSource): Promise<SourceResult> => {
@@ -34,17 +86,23 @@ export const fetchSource = async (source: DataSource): Promise<SourceResult> => 
         source,
         lastUpdated: null,
         status: "unknown",
+        cadence: parseCadence(null, source.fallbackFrequency),
+        overdueDays: null,
         error: `HTTP ${res.status}`,
       };
     }
 
     const json = await res.json();
-    const lastUpdated = source.parseLastUpdated(json);
+    const parsed = source.parseSource(json);
+    const cadence = parseCadence(parsed.declaredFrequency, source.fallbackFrequency);
+    const overdueDays = computeOverdue(parsed.lastUpdated, cadence);
     return {
       source,
-      lastUpdated,
-      status: computeStatus(lastUpdated),
-      error: lastUpdated ? undefined : "Could not parse last-updated date",
+      lastUpdated: parsed.lastUpdated,
+      status: computeStatus(parsed.lastUpdated),
+      cadence,
+      overdueDays,
+      error: parsed.lastUpdated ? undefined : "Could not parse last-updated date",
     };
   } catch (err) {
     const message =
@@ -53,7 +111,14 @@ export const fetchSource = async (source: DataSource): Promise<SourceResult> => 
           ? "Request timed out"
           : err.message
         : "Unknown error";
-    return { source, lastUpdated: null, status: "unknown", error: message };
+    return {
+      source,
+      lastUpdated: null,
+      status: "unknown",
+      cadence: parseCadence(null, source.fallbackFrequency),
+      overdueDays: null,
+      error: message,
+    };
   }
 };
 
@@ -67,6 +132,8 @@ export const fetchAllSources = async (
       source: sources[i],
       lastUpdated: null,
       status: "unknown" as const,
+      cadence: parseCadence(null, sources[i].fallbackFrequency),
+      overdueDays: null,
       error: s.reason instanceof Error ? s.reason.message : "Unknown error",
     };
   });
@@ -99,4 +166,17 @@ export const formatAbsolute = (d: Date | null): string => {
     month: "short",
     day: "numeric",
   });
+};
+
+export const formatOverdue = (overdueDays: number | null): string | null => {
+  if (overdueDays == null || overdueDays === 0) return null;
+  if (overdueDays >= 365) {
+    const years = Math.floor(overdueDays / 365);
+    return `${years} year${years === 1 ? "" : "s"} overdue`;
+  }
+  if (overdueDays >= 30) {
+    const months = Math.floor(overdueDays / 30);
+    return `${months} month${months === 1 ? "" : "s"} overdue`;
+  }
+  return `${overdueDays} day${overdueDays === 1 ? "" : "s"} overdue`;
 };
