@@ -40,9 +40,9 @@ export default async function Home() {
 
         <footer className="mt-20 flex flex-col gap-2 border-t border-[#1A1814]/10 pt-6 text-xs text-[#1A1814]/55 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            Built by Nik Tierney with Claude Code ·{" "}
+            Built by Nick Tierney with Claude Code ·{" "}
             <a
-              href="https://github.com/niktierney"
+              href="https://github.com/nick-ships/data-freshness-monitor"
               target="_blank"
               rel="noopener noreferrer"
               className="underline-offset-4 hover:text-[#C8401A] hover:underline"

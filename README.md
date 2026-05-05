@@ -10,7 +10,7 @@ So I built one. I now use it as a pre-flight check before relying on any layer i
 
 ## Live demo
 
-[Deployed on Vercel](https://) — _link to be added after first deploy_.
+**[data-freshness-monitor-rust.vercel.app](https://data-freshness-monitor-rust.vercel.app/)**
 
 ## Tech stack
 
@@ -59,4 +59,4 @@ Things I'd add if this went past the portfolio stage:
 
 ---
 
-Built by **Nik Tierney** with [Claude Code](https://claude.com/claude-code).
+Built by **Nick Tierney** with [Claude Code](https://claude.com/claude-code).
