@@ -4,9 +4,9 @@ A single-page dashboard that monitors how recently key Australian government ope
 
 ## Why I built it
 
-I'm building a civic-data product called **StreetLens** that layers government datasets (addresses, crime, planning, weather) on top of one another. The whole platform is only as trustworthy as the freshness of those layers — and there's no single dashboard that tells you, at a glance, which government datasets are current and which are months stale.
+I'm building a civic-data product called **StreetLens** that layers bulk government datasets on top of one another. The whole platform is only as trustworthy as the freshness of those layers — and there's no single dashboard that tells you, at a glance, which government datasets are current and which are months stale.
 
-So I built one. I now use it as a pre-flight check before relying on any layer in StreetLens.
+So I built one. I will continue to build this out and incorporate our current 26+ data layers already geocoded, and use it as a pre-flight check before relying on any layer in StreetLens.
 
 ## Live demo
 
